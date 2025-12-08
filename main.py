@@ -1,20 +1,19 @@
 """
-AI Learning Assistant - Main Application (Week 2)
+AI Learning Assistant - Main Application (Week 4)
 Owner: A
 
-Integrates with C's evaluation system.
-B's components (parser, tutor, quiz) are MOCKS for Week 2.
+Integrates with B and C's parts.
 """
 
 from datetime import datetime
 from typing import Dict, List
 
-# B's modules (MOCKS)
+# B's modules
 from parsers.lecture_parser import LectureParser
 from agents.tutor_agent import TutorAgent
 from agents.quiz_agent import QuizAgent
 
-# C's evaluation modules (REAL implementations)
+# C's modules
 from evaluation.evaluator import Evaluator
 from evaluation.progress_tracker import ProgressTracker
 from evaluation.adaptive_engine import AdaptiveEngine
@@ -29,23 +28,21 @@ from core.types import MasterySample
 
 class LearningAssistant:
     """
-    Main system orchestrator for Week 2.
-    Core requirement: integrate with C's evaluation interfaces.
-    B's components are MOCKS.
+    Main system orchestrator for Week 4.
     """
 
     def __init__(self, user_id="user1"):
         self.user_id = user_id
 
-        # Storage (C's implementation)
+        # Storage
         self.storage = Storage()
 
-        # B's mock components
+        # B's components
         self.parser = LectureParser()
         self.tutor = TutorAgent(self.storage)
         self.quiz_gen = QuizAgent(self.storage)
 
-        # C's evaluation components
+        # C's components
         self.evaluator = Evaluator()
         self.tracker = ProgressTracker(storage=self.storage)
         self.adaptive = AdaptiveEngine(storage=self.storage, tracker=self.tracker)
@@ -96,7 +93,6 @@ class LearningAssistant:
     def upload_course(self, file_path: str) -> dict:
         """
         Upload and parse course material.
-        Uses B's mock parser.
         """
         try:
             course = self.parser.parse(file_path)
@@ -117,21 +113,24 @@ class LearningAssistant:
     
     def explain_concept(self, concept: str) -> dict:
         """
-        Explain a concept using tutor agent (mock) with adaptive difficulty.
+        Explain a concept using tutor agent with adaptive difficulty.
         
         Flow:
-        1. Get adaptive difficulty using helper method
-        2. Call B's tutor agent (mock) to generate explanation
+            1. Get adaptive difficulty based on mastery
+            2. TutorAgent queries vector DB for context
+            3. Generate explanation at appropriate level
         """
         try:
             # Get adaptive difficulty
             difficulty_int = self._get_adaptive_difficulty_int(concept)
             
-            # Call B's mock tutor
+            print(f"🎓 Explaining '{concept}' at difficulty {difficulty_int}/5...")
+            
+            # Call B's tutor
             explanation = self.tutor.explain_concept(
                 concept, 
                 difficulty_int, 
-                context="mock"
+                context=""
             )
 
             return {
@@ -148,10 +147,10 @@ class LearningAssistant:
 
     def ask_question(self, question: str) -> dict:
         """
-        Answer student question using tutor agent (mock).
+        Answer student question using tutor agent.
         """
         try:
-            answer = self.tutor.answer_question(question, course_context="mock")
+            answer = self.tutor.answer_question(question, course_context="")
             return {
                 "success": True,
                 "answer": answer
@@ -168,17 +167,17 @@ class LearningAssistant:
     
     def generate_quiz(self, topic: str, num_questions: int = 5) -> dict:
         """
-        Generate a quiz using quiz agent (mock) with adaptive difficulty.
+        Generate a quiz using quiz agent with adaptive difficulty.
         
         Flow:
         1. Get adaptive difficulty using helper method
-        2. Call B's quiz agent (mock) to generate quiz
+        2. Call quiz agent to generate quiz
         """
         try:
             # Get adaptive difficulty
             difficulty_int = self._get_adaptive_difficulty_int(topic)
             
-            # Call B's mock quiz generator
+            # Call quiz generator
             quiz = self.quiz_gen.generate_quiz(
                 topic, 
                 difficulty_int, 
@@ -198,10 +197,14 @@ class LearningAssistant:
                 "message": str(e)
             }
     
-    def show_quiz(self) -> dict:
+    def show_quiz(self, show_answers: bool = False) -> dict:
         """
         Display the current quiz questions.
-        Returns the current quiz if available.
+    
+        Args:
+            show_answers: 
+                If True, show correct answers (for debugging)
+                If False, hide answers (for actual testing)
         """
         try:
             if not self.current_quiz:
@@ -212,7 +215,8 @@ class LearningAssistant:
         
             return {
                 "success": True,
-                "quiz": self.current_quiz
+                "quiz": self.current_quiz,
+                "show_answers": show_answers
             }
         except Exception as e:
             return {
@@ -220,58 +224,59 @@ class LearningAssistant:
                 "message": str(e)
             }
 
-    def submit_quiz(self, answers: List[Dict] = None) -> dict:
+    def submit_quiz(self, user_answers: List[Dict] = None) -> dict:
         """
-        Submit quiz answers and evaluate using C's evaluation system.
-        
-        This is the CORE integration point with C's code.
-        
-        Flow:
-        1. Validate input
-        2. Convert answers to raw_quiz format
-        3. Adapt using C's adapter → QuizAdapterOutput
-        4. Evaluate using C's evaluator → score
-        5. Build MasterySample using C's evaluator
-        6. Record using C's tracker
-        
+        Submit quiz answers and evaluate.
+
         Args:
-            quiz_id: Quiz identifier
-            answers: List of dicts with format:
-                [
-                    {
-                        'question_id': str,
-                        'answer': str,
-                        'correct_answer': str,
-                        'topic_id': str
-                    },
-                    ...
-                ]
+            user_answers: 
+                List like ["A", "B", "C", "D", "A"]
+                If None, auto-fill with correct answers
         """
         try:
-            if answers is None:
-                if not self.current_quiz:
-                    return {
-                        "success": False,
-                        "message": "No current quiz. Generate a quiz first."
-                    }
-            
-            # Auto-generate answers for testing
-            answers = []
-            for q in self.current_quiz['questions']:
-                answers.append({
-                    'question_id': q['question_id'],
-                    'answer': q['correct_answer'], 
-                    'correct_answer': q['correct_answer'],
-                    'topic_id': self.current_quiz['topic']
-                })
-            print("⚠️  Using auto-generated answers for testing")
-        
-            # Validate input
-            if not answers:
+            if not self.current_quiz:
                 return {
                     "success": False,
-                    "message": "No answers provided"
+                    "message": "No current quiz. Generate a quiz first."
                 }
+                
+            questions = self.current_quiz['questions']
+            
+            # Construct answers
+            if user_answers is None:
+                # Auto-test mode
+                print("⚠️  Auto-test mode: Using correct answers")
+                answers = []
+                for q in questions:
+                    answers.append({
+                        'question_id': q['question_id'],
+                        'answer': q['correct_answer'],
+                        'correct_answer': q['correct_answer'],
+                        'topic_id': self.current_quiz['topic']
+                    })
+            else:
+                # User-answer mode
+                if len(user_answers) != len(questions):
+                    return {
+                        "success": False,
+                        "message": f"Expected {len(questions)} answers, got {len(user_answers)}"
+                    }
+            
+                answers = []
+                for i, q in enumerate(questions):
+                    user_ans = user_answers[i].upper().strip()
+                    if user_ans not in ['A', 'B', 'C', 'D']:
+                        return {
+                            "success": False,
+                            "message": f"Invalid answer '{user_ans}' at question {i+1}. Use A/B/C/D."
+                        }
+                
+                    answers.append({
+                        'question_id': q['question_id'],
+                        'answer': user_ans,
+                        'correct_answer': q['correct_answer'],
+                        'topic_id': self.current_quiz['topic']
+                    })
             
             # Count correct answers
             correct_count = sum(
@@ -281,40 +286,52 @@ class LearningAssistant:
             total = len(answers)
             
             # Get topic from first answer
-            topic_id = answers[0].get("topic_id", "unknown")
+            topic_id = self.current_quiz['topic']
 
-            # Step 1: Build raw_quiz in the format C's adapter expects
+            # Build raw_quiz
             raw_quiz = {
-                "user_id": self.user_id,
-                "topic_id": topic_id,
-                "timestamp": datetime.now().isoformat(),
-                "difficulty": "medium",  # This should come from generate_quiz
-                "questions": [
-                    {"is_correct": ans["answer"] == ans["correct_answer"]}
-                    for ans in answers
-                ]
+                "quiz_id": self.current_quiz.get('quiz_id', 'test_quiz'),
+                "topic": topic_id,
+                "answers": answers
             }
-
-            # Step 2: Adapt to QuizAdapterOutput (C's adapter)
-            quiz_output = adapt_quiz_result(raw_quiz)
-
-            # Step 3: Evaluate quiz (C's evaluator)
-            quiz_score = self.evaluator.evaluate_quiz(quiz_output)
-
-            # Step 4: Build MasterySample (C's evaluator)
-            mastery_sample = self.evaluator.build_mastery_sample(quiz_output, qa=None)
-
-            # Step 5: Record to storage (C's tracker)
-            self.tracker.record_mastery_sample(mastery_sample)
-
+            
+            # === C's Evaluation Pipeline ===
+            print("📊 Evaluating with the system...")
+        
+            adapted = adapt_quiz_result(raw_quiz)
+            score = self.evaluator.evaluate_quiz(adapted.results, adapted.topic_id)
+            sample = self.evaluator.build_mastery_sample(
+                self.user_id,
+                adapted.topic_id,
+                score,
+                datetime.now()
+            )
+            self.tracker.record_mastery_sample(sample)
+        
+            print(f"✅ Recorded: {score:.1%} mastery for '{topic_id}'")
+        
+            # detailed results
+            results_detail = []
+            for i, ans in enumerate(answers, 1):
+                is_correct = ans['answer'] == ans['correct_answer']
+                results_detail.append({
+                    'question_num': i,
+                    'user_answer': ans['answer'],
+                    'correct_answer': ans['correct_answer'],
+                    'is_correct': is_correct
+                })
+        
             return {
                 "success": True,
-                "score": quiz_score,
+                "score": score,
                 "correct": correct_count,
                 "total": total,
-                "topic_id": topic_id
+                "topic_id": topic_id,
+                "details": results_detail
             }
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return {
                 "success": False,
                 "message": str(e)
@@ -414,8 +431,10 @@ def main():
     print("  explain <concept> - Get adaptive explanation")
     print("  ask <question>    - Ask a question")
     print("  quiz <topic> [n]  - Generate quiz (default 5 questions)")
-    print("  show              - Show current quiz questions")           # 新增
-    print("  submit            - Submit and evaluate current quiz")      # 修改
+    print("  show              - Show quiz again (without answers)")
+    print("  show answers      - Show quiz with correct answers")
+    print("  submit <A B C>    - Submit your answers (e.g., 'submit A B C D A')")
+    print("  submit            - Auto-test mode (uses correct answers)")
     print("  progress [topic]  - View progress")
     print("  curve <topic>     - View learning curve")
     print("  next              - Get next recommendation")
@@ -452,40 +471,78 @@ def main():
                     print(f"❌ {result['message']}")
 
             elif cmd.startswith("quiz "):
-                topic = cmd.split(" ", 1)[1]
-                result = assistant.generate_quiz(topic)
+                parts = cmd.split()
+                topic = parts[1]
+                num = int(parts[2]) if len(parts) > 2 else 5
+
+                result = assistant.generate_quiz(topic, num)
                 if result["success"]:
-                    print(f"\n📝 Quiz generated:")
-                    print(f"  Topic: {result['quiz']['topic']}")
-                    print(f"  Difficulty: {result['difficulty']}/5")
-                    print(f"  Questions: {len(result['quiz']['questions'])}")
-                    print(f"\n💡 Type 'show' to see questions")
-                    print(f"💡 Type 'submit' to evaluate\n")
+                    quiz = result['quiz']
+                    print(f"\n📝 Quiz: {quiz['topic']}")
+                    print(f"🎯 Difficulty: {result['difficulty']}/5")
+                    print(f"📋 {len(quiz['questions'])} Questions\n")
+                    print("─" * 60)
+        
+                    for i, q in enumerate(quiz['questions'], 1):
+                        print(f"\nQuestion {i}: {q['question']}")
+                        for opt in q['options']:
+                            print(f"  {opt}")
+        
+                    print("\n" + "─" * 60)
+                    print(f"💡 Type 'submit A B C D ...' to submit your answers")
+                    print(f"💡 Type 'submit' to auto-test with correct answers")
+                    print(f"💡 Type 'show answers' to see correct answers\n")
                 else:
                     print(f"❌ {result['message']}")
                     
-            elif cmd == "show":
-                result = assistant.show_quiz()
+            elif cmd.startswith("show"):
+                show_answers = "answers" in cmd.lower()
+                result = assistant.show_quiz(show_answers=show_answers)
+    
                 if result["success"]:
                     quiz = result['quiz']
-                    print(f"\n📝 Current Quiz: {quiz['topic']}\n")
+                    print(f"\n📝 Quiz: {quiz['topic']}\n")
+                    print("─" * 60)
+        
                     for i, q in enumerate(quiz['questions'], 1):
-                        print(f"Question {i}: {q['question']}")
+                        print(f"\nQuestion {i}: {q['question']}")
                         for opt in q['options']:
                             print(f"  {opt}")
-                        print(f"  ✅ Correct: {q['correct_answer']}")
-                        print()
+            
+                        if show_answers:
+                            print(f"  ✅ Correct: {q['correct_answer']}")
+        
+                    print("\n" + "─" * 60 + "\n")
                 else:
                     print(f"❌ {result['message']}")
 
-            elif cmd == "submit":
-                print("\n📤 Submitting quiz...")
-                result = assistant.submit_quiz()
+            elif cmd.startswith("submit"):
+                parts = cmd.split()
+    
+                if len(parts) == 1:
+                    # submit (no parameters) - auto-test
+                    print("\n📤 Submitting quiz (auto-test mode)...")
+                    result = assistant.submit_quiz()
+                else:
+                    # submit A B C D - user-answer
+                    user_answers = parts[1:]
+                    print(f"\n📤 Submitting your answers: {' '.join(user_answers)}")
+                    result = assistant.submit_quiz(user_answers)
+    
                 if result["success"]:
                     print(f"\n✅ Quiz Evaluated!")
-                    print(f"  📊 Score: {result['score']:.2%}")
+                    print(f"  📊 Score: {result['score']:.1%}")
                     print(f"  ✓ Correct: {result['correct']}/{result['total']}")
-                    print(f"  📚 Topic: {result['topic_id']}\n")
+                    print(f"  📚 Topic: {result['topic_id']}")
+        
+                    # show detailed results
+                    print(f"\n  📋 Details:")
+                    for detail in result['details']:
+                        status = "✅" if detail['is_correct'] else "❌"
+                        print(f"    Q{detail['question_num']}: {status} "
+                            f"You: {detail['user_answer']} | "
+                            f"Correct: {detail['correct_answer']}")
+                    print()
                 else:
                     print(f"❌ {result['message']}")
 
