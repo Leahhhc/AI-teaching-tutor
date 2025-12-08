@@ -620,8 +620,8 @@ class LearningAssistant:
     Purpose: Main system orchestrator integrating all modules
     
     Components:
-        - B's modules (MOCKS): parser, tutor, quiz_gen
-        - C's modules (REAL): evaluator, tracker, adaptive
+        - B's modules: parser, tutor, quiz_gen
+        - C's modules: evaluator, tracker, adaptive
         - Storage: C's implementation
     """
     
@@ -827,7 +827,7 @@ User Input (via CLI/UI)
     ↓
 A's main.py (LearningAssistant)
     ↓
-B's Modules (MOCKS)              C's Modules (REAL)
+B's Modules.                   C's Modules
     ↓                                ↓
 Quiz/QA Data                     Adapters
     ↓                                ↓
@@ -848,31 +848,7 @@ Quiz/QA Data                     Adapters
 
 ---
 
-## Important Notes for Week 2
-
-### 1. **Implementation Status**
-- **C's modules**: Fully implemented (evaluator, tracker, adaptive, storage)
-- **B's modules**: MOCKS only (return dummy data)
-- **A's main.py**: Fully implemented integration logic
-
-### 2. **Testing Priority**
-Focus on testing the integration points:
-- `submit_quiz()`: Core evaluation flow
-- `explain_concept()` / `generate_quiz()`: Adaptive difficulty
-- `get_progress()`: Mastery computation
-- `next_recommendation()`: Adaptive suggestions
-
-### 3. **Error Handling**
-All main.py methods use try-except blocks and return:
-```python
-{
-    "success": bool,
-    # ... other fields ...
-    "message": str  # Only present if success=False
-}
-```
-
-### 4. **For D (Frontend Developer)**
+### **For D (Frontend Developer)**
 D should call A's main.py methods. Key methods for UI:
 - `get_progress()`: Display mastery dashboard
 - `get_learning_curve()`: Plot progress over time
