@@ -36,33 +36,42 @@ class MasterySample:
 class LectureParser:
     """
     Owner: B
-    Purpose: Parse course material files
-    Status: MOCK for Week 2
+    Purpose: Parse course material files (PDF) and store chunks in the vector database.
+    Status: IMPLEMENTED
     """
-    
-    def parse(self, file_path: str) -> dict:
+
+    def __init__(self, storage=None):
         """
-        Parse course material
+        Initialize the parser with storage backend.
         
         Args:
-            file_path: File path (supports .txt, .pdf)
+            storage: Optional Storage instance. If None, initializes default Storage.
+        """
+        pass
+
+    def parse(self, file_path: str) -> dict:
+        """
+        Parse course material, extract text, and save to Vector DB.
+        
+        Args:
+            file_path: Absolute path to the file (must be .pdf)
         
         Returns:
             {
                 'title': str,
                 'chapters': [
                     {
-                        'id': str,
-                        'name': str,
-                        'content': str,
-                        'key_concepts': List[str]
+                        'id': 'chap_1',
+                        'name': 'Extracted Content',
+                        'content': str,  # Full extracted text
+                        'key_concepts': []  # Empty list in current implementation
                     }
                 ]
             }
         
         Raises:
-            FileNotFoundError: File does not exist
-            ValueError: File format not supported
+            FileNotFoundError: If file path is invalid
+            ValueError: If file format is not .pdf
         """
         pass
 ```
@@ -73,46 +82,60 @@ class LectureParser:
 class TutorAgent:
     """
     Owner: B
-    Purpose: Teaching explanation and Q&A
-    Status: MOCK for Week 2
-    
-    NOTE: All methods should return dummy text for Week 2.
+    Purpose: RAG-enabled teaching explanation and Q&A using Phi-3 model.
+    Status: IMPLEMENTED
     """
-    
-    def __init__(self):
-        """Initialize agent (no API needed for mock)"""
-        pass
-    
-    def explain_concept(self, concept: str, difficulty: int, context: str = "") -> str:
+
+    def __init__(self, storage=None):
         """
-        Explain a concept with adaptive difficulty
+        Initialize the Tutor Agent.
         
         Args:
-            concept: Concept name
-            difficulty: Difficulty level 1-5 (from adaptive engine or default)
-            context: Related course material content (optional)
-        
-        Returns:
-            Explanation text (can be dummy text for Week 2)
+            storage: Optional Storage instance. If None, initializes default Storage.
             
-        Example:
-            "This is a mock explanation for {concept} at difficulty {difficulty}"
+        Side Effects:
+            - Loads the 'microsoft/Phi-3-mini-4k-instruct' model to GPU.
+            - Initializes 4-bit quantization config.
+            - Sets up the HuggingFace text-generation pipeline.
         """
         pass
-    
+
+    def respond(self, query: str) -> str:
+        """
+        Core RAG method: Retrieval + Generation.
+        
+        Args:
+            query: The raw input string to search for and generate a response to.
+            
+        Returns:
+            str: The direct LLM output based on retrieved context.
+        """
+        pass
+
+    def explain_concept(self, concept: str, difficulty: int = 3, context: str = "") -> str:
+        """
+        Explain a concept with adaptive difficulty using retrieved context.
+        
+        Args:
+            concept: The concept to explain.
+            difficulty: Target difficulty level (1-5).
+            context: Optional override context.
+        
+        Returns:
+            str: The AI-generated explanation based on the course material.
+        """
+        pass
+
     def answer_question(self, question: str, course_context: str = "") -> str:
         """
-        Answer student questions
+        Answer a specific student question.
         
         Args:
-            question: Student's question
-            course_context: Related course material (optional)
+            question: The student's natural language question.
+            course_context: Optional override context.
         
         Returns:
-            Answer text (can be dummy text for Week 2)
-            
-        Example:
-            "This is a mock answer to: {question}"
+            str: The AI-generated answer.
         """
         pass
 ```
@@ -123,25 +146,33 @@ class TutorAgent:
 class QuizAgent:
     """
     Owner: B
-    Purpose: Generate quiz questions
-    Status: MOCK for Week 2
-    
-    NOTE: Should return data matching the format below.
+    Purpose: Generate multiple-choice quiz questions based on course material using Phi-3.
+    Status: IMPLEMENTED
     """
-    
-    def __init__(self):
-        pass
-    
-    def generate_quiz(self, topic: str, difficulty: int, num_questions: int = 5, 
-                     context: str = "") -> dict:
+
+    def __init__(self, storage):
         """
-        Generate quiz with adaptive difficulty
+        Initialize the Quiz Agent.
         
         Args:
-            topic: Quiz topic
-            difficulty: Difficulty 1-5 (from adaptive engine or default)
-            num_questions: Number of questions (default: 5)
-            context: Course material context (optional)
+            storage: The Storage instance containing the vector DB.
+            
+        Side Effects:
+            - Loads the 'microsoft/Phi-3-mini-4k-instruct' model to GPU.
+            - Initializes 4-bit quantization config.
+            - Sets up the HuggingFace text-generation pipeline.
+        """
+        pass
+
+    def generate_quiz(self, topic: str, difficulty: int = 3, num_questions: int = 5, context: str = "") -> dict:
+        """
+        Generate a structured quiz with multiple questions.
+        
+        Args:
+            topic: The topic to generate questions for.
+            difficulty: Integer 1-5 (Adjusts complexity of questions).
+            num_questions: Number of questions to generate.
+            context: Optional manual context (default uses RAG).
         
         Returns:
             {
@@ -152,27 +183,12 @@ class QuizAgent:
                     {
                         'question_id': str,
                         'question': str,
-                        'options': List[str],
-                        'correct_answer': str,
+                        'options': [str, str, str, str],
+                        'correct_answer': str (e.g., "A"),
                         'explanation': str
-                    }
+                    },
+                    ...
                 ]
-            }
-        
-        Example mock return:
-            {
-                'quiz_id': 'mock_quiz_123',
-                'topic': topic,
-                'difficulty': difficulty,
-                'questions': [
-                    {
-                        'question_id': 'q1',
-                        'question': f'Mock question about {topic}',
-                        'options': ['A', 'B', 'C', 'D'],
-                        'correct_answer': 'A',
-                        'explanation': 'Mock explanation'
-                    }
-                ] * num_questions
             }
         """
         pass
@@ -519,48 +535,74 @@ def adapt_qa_result(raw_qa: Optional[Dict[str, Any]]) -> Optional[QAAdapterOutpu
 ```python
 class Storage:
     """
-    Owner: C
-    Purpose: Simple in-memory storage for mastery samples
+    Owner: C & B
+    Purpose: Shared storage handling both In-Memory Mastery data (C) and Vector Database (B).
     Status: IMPLEMENTED
     """
-    
+
     def __init__(self):
-        """Initialize in-memory storage"""
+        """
+        Initialize both the Mastery storage (dict) and Vector DB (Chroma).
+        """
         pass
-    
+
+    # --- Part 1: Mastery Storage (Owner: C) ---
+
     def append_mastery_sample(self, sample: MasterySample) -> None:
         """
-        Append a mastery sample to storage
+        Append a mastery sample to in-memory storage.
         
         Args:
-            sample: MasterySample to store
+            sample: The MasterySample object to store.
         """
         pass
-    
+
     def get_samples(self, user_id: str, topic_id: str) -> List[MasterySample]:
         """
-        Get all mastery samples for a user and topic
+        Get all mastery samples for a specific user and topic.
         
         Args:
-            user_id: User ID
-            topic_id: Topic ID
-        
+            user_id: The ID of the student.
+            topic_id: The ID of the topic.
+            
         Returns:
-            List of MasterySample, ordered by timestamp (oldest first)
-            Empty list if no samples exist
+            List[MasterySample]: Ordered list of samples (oldest first).
         """
         pass
-    
+
     def get_topics(self, user_id: str) -> List[str]:
         """
-        Get all topic IDs that a user has studied
+        Get a list of all topic IDs a user has studied.
         
         Args:
-            user_id: User ID
-        
+            user_id: The ID of the student.
+            
         Returns:
-            List of unique topic_id strings
-            Empty list if user has no topics
+            List[str]: Unique topic IDs.
+        """
+        pass
+
+    # --- Part 2: Vector DB Operations (Owner: B) ---
+
+    def add_documents(self, documents) -> None:
+        """
+        Store parsed text chunks into the Chroma Vector Database.
+        
+        Args:
+            documents: List of LangChain Document objects.
+        """
+        pass
+
+    def query(self, question: str, k: int = 3) -> list:
+        """
+        Retrieve relevant text chunks for a given query.
+        
+        Args:
+            question: The search query string.
+            k: Number of results to return.
+            
+        Returns:
+            List[Document]: The matched text chunks with similarity scores.
         """
         pass
 ```
