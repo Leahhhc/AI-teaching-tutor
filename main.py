@@ -1,8 +1,9 @@
 """
-AI Learning Assistant - Main Application (Week 4)
+AI Learning Assistant - Main Application
 Owner: A
 
-Integrates with B and C's parts.
+Integrates B's content management system with C's adaptive learning evaluation.
+All components are now REAL implementations (no mocks).
 """
 
 from datetime import datetime
@@ -19,36 +20,46 @@ from evaluation.progress_tracker import ProgressTracker
 from evaluation.adaptive_engine import AdaptiveEngine
 from evaluation.adapters import adapt_quiz_result, adapt_qa_result
 
-# Storage
+# Storage (shared by B and C)
 from memory.storage import Storage
 
-# Core types
+# Core types (shared data structure)
 from core.types import MasterySample
 
 
 class LearningAssistant:
     """
-    Main system orchestrator for Week 4.
+    Main system orchestrator integrating:
+    - B's content management (parsing, tutoring, quiz generation)
+    - C's adaptive learning (evaluation, progress tracking, recommendations)
     """
 
     def __init__(self, user_id="user1"):
         self.user_id = user_id
+        
+        print("🔧 Initializing Learning Assistant...")
 
-        # Storage
+        # Shared storage (used by both B and C)
+        print("  📦 Storage...")
         self.storage = Storage()
 
-        # B's components
-        self.parser = LectureParser()
-        self.tutor = TutorAgent(self.storage)
-        self.quiz_gen = QuizAgent(self.storage)
+        # B's content management components
+        print("  📚 Content Management (B)...")
+        self.parser = LectureParser(storage=self.storage)
+        self.tutor = TutorAgent(storage=self.storage)
+        self.quiz_gen = QuizAgent(storage=self.storage)
 
-        # C's components
+        # C's evaluation components
+        print("  🎯 Evaluation System (C)...")
         self.evaluator = Evaluator()
         self.tracker = ProgressTracker(storage=self.storage)
         self.adaptive = AdaptiveEngine(storage=self.storage, tracker=self.tracker)
 
         self.current_course = None
         self.current_quiz = None
+        self.current_difficulty_int = 3  # Track last used difficulty
+        
+        print("✅ Initialization Complete!\n")
 
     # ======================================================
     #                   HELPER METHODS
@@ -58,18 +69,17 @@ class LearningAssistant:
         """
         Convert mastery level to integer difficulty (1-5)
         
-        This is a helper that bridges C's string-based difficulty
-        ("easy"/"medium"/"hard") with B's integer-based difficulty (1-5).
+        Bridges C's mastery calculation with B's difficulty scale:
+        - mastery < 0.4  → difficulty 2 (easy)
+        - 0.4 ≤ mastery < 0.7 → difficulty 3 (medium)
+        - mastery ≥ 0.7 → difficulty 4 (hard)
+        - no data → difficulty 3 (default medium)
         
         Args:
             topic_id: Topic to get difficulty for
             
         Returns:
-            Difficulty level:
-                2 = easy (mastery < 0.4)
-                3 = medium (0.4 <= mastery < 0.7)
-                4 = hard (mastery >= 0.7)
-                3 = default (no data)
+            Difficulty level (1-5 scale)
         """
         topics = self.storage.get_topics(self.user_id)
         
@@ -85,18 +95,46 @@ class LearningAssistant:
             return 3  # medium
         else:
             return 4  # hard
+    
+    def _map_difficulty_to_string(self, difficulty_int: int) -> str:
+        """
+        Map integer difficulty (1-5) to string ("easy"/"medium"/"hard")
+        for C's evaluation system.
+        
+        Args:
+            difficulty_int: Integer difficulty (1-5)
+            
+        Returns:
+            String difficulty for C's system
+        """
+        if difficulty_int <= 2:
+            return "easy"
+        elif difficulty_int >= 4:
+            return "hard"
+        else:
+            return "medium"
 
     # ======================================================
-    #                   COURSE MANAGEMENT
+    #                   COURSE MANAGEMENT (B)
     # ======================================================
     
     def upload_course(self, file_path: str) -> dict:
         """
-        Upload and parse course material.
+        Upload and parse course material using B's LectureParser.
+        
+        Flow:
+        1. Parse PDF file
+        2. Chunk text
+        3. Store in vector database (automatic in parser)
+        
+        Returns:
+            dict with success status and course info
         """
         try:
+            print(f"📂 Parsing: {file_path}")
             course = self.parser.parse(file_path)
             self.current_course = course
+            print(f"✅ Loaded: {course['title']}")
             return {
                 "success": True,
                 "course": course
@@ -108,17 +146,17 @@ class LearningAssistant:
             }
 
     # ======================================================
-    #                   TEACHING / QA
+    #                   TEACHING / QA (B)
     # ======================================================
     
     def explain_concept(self, concept: str) -> dict:
         """
-        Explain a concept using tutor agent with adaptive difficulty.
+        Explain a concept using B's TutorAgent with adaptive difficulty.
         
         Flow:
-            1. Get adaptive difficulty based on mastery
-            2. TutorAgent queries vector DB for context
-            3. Generate explanation at appropriate level
+        1. Get adaptive difficulty based on mastery (C)
+        2. TutorAgent queries vector DB for context (B)
+        3. Generate explanation at appropriate level (B)
         """
         try:
             # Get adaptive difficulty
@@ -126,10 +164,10 @@ class LearningAssistant:
             
             print(f"🎓 Explaining '{concept}' at difficulty {difficulty_int}/5...")
             
-            # Call B's tutor
+            # Call B's tutor (will query vector DB internally)
             explanation = self.tutor.explain_concept(
                 concept, 
-                difficulty_int, 
+                difficulty=difficulty_int,
                 context=""
             )
 
@@ -147,10 +185,19 @@ class LearningAssistant:
 
     def ask_question(self, question: str) -> dict:
         """
-        Answer student question using tutor agent.
+        Answer student question using B's TutorAgent.
+        
+        Flow:
+        1. TutorAgent queries vector DB for relevant context
+        2. Generate answer based on context
         """
         try:
-            answer = self.tutor.answer_question(question, course_context="")
+            print(f"💭 Processing question...")
+            # B's tutor will query vector DB internally
+            answer = self.tutor.answer_question(
+                question, 
+                course_context=""  # Agent内部查询向量DB
+            )
             return {
                 "success": True,
                 "answer": answer
@@ -162,28 +209,34 @@ class LearningAssistant:
             }
 
     # ======================================================
-    #                        QUIZ
+    #                        QUIZ (B)
     # ======================================================
     
     def generate_quiz(self, topic: str, num_questions: int = 5) -> dict:
         """
-        Generate a quiz using quiz agent with adaptive difficulty.
+        Generate a quiz using B's QuizAgent with adaptive difficulty.
         
         Flow:
-        1. Get adaptive difficulty using helper method
-        2. Call quiz agent to generate quiz
+        1. Get adaptive difficulty based on mastery (C)
+        2. QuizAgent queries vector DB for context (B)
+        3. Generate questions at appropriate level (B)
+        4. Store quiz for later submission
         """
         try:
             # Get adaptive difficulty
             difficulty_int = self._get_adaptive_difficulty_int(topic)
+            self.current_difficulty_int = difficulty_int  # Store for submit
             
-            # Call quiz generator
+            print(f"🔍 Generating {num_questions} questions for: {topic} (Difficulty: {difficulty_int}/5)")
+            
+            # Call B's quiz generator (queries vector DB internally)
             quiz = self.quiz_gen.generate_quiz(
                 topic, 
-                difficulty_int, 
-                num_questions
+                difficulty=difficulty_int, 
+                num_questions=num_questions
             )
             
+            # Store for submission
             self.current_quiz = quiz
 
             return {
@@ -202,9 +255,8 @@ class LearningAssistant:
         Display the current quiz questions.
     
         Args:
-            show_answers: 
-                If True, show correct answers (for debugging)
-                If False, hide answers (for actual testing)
+            show_answers: If True, show correct answers (for debugging)
+                         If False, hide answers (for actual testing)
         """
         try:
             if not self.current_quiz:
@@ -224,14 +276,22 @@ class LearningAssistant:
                 "message": str(e)
             }
 
-    def submit_quiz(self, user_answers: List[Dict] = None) -> dict:
+    def submit_quiz(self, user_answers: List[str] = None) -> dict:
         """
-        Submit quiz answers and evaluate.
+        Submit quiz answers and evaluate using C's evaluation system.
+        
+        This is the core integration point between B and C.
+
+        Flow:
+        1. Convert user answers to internal format
+        2. Adapt using C's adapter → QuizAdapterOutput
+        3. Evaluate using C's evaluator → score
+        4. Build MasterySample using C's evaluator
+        5. Record using C's tracker
 
         Args:
-            user_answers: 
-                List like ["A", "B", "C", "D", "A"]
-                If None, auto-fill with correct answers
+            user_answers: List like ["A", "B", "C", "D", "A"]
+                         If None, auto-fill with correct answers for testing
         """
         try:
             if not self.current_quiz:
@@ -242,9 +302,9 @@ class LearningAssistant:
                 
             questions = self.current_quiz['questions']
             
-            # Construct answers
+            # Build answers list
             if user_answers is None:
-                # Auto-test mode
+                # Auto-test mode: use correct answers
                 print("⚠️  Auto-test mode: Using correct answers")
                 answers = []
                 for q in questions:
@@ -255,7 +315,7 @@ class LearningAssistant:
                         'topic_id': self.current_quiz['topic']
                     })
             else:
-                # User-answer mode
+                # User answer mode
                 if len(user_answers) != len(questions):
                     return {
                         "success": False,
@@ -284,33 +344,53 @@ class LearningAssistant:
                 if ans.get("answer") == ans.get("correct_answer")
             )
             total = len(answers)
-            
-            # Get topic from first answer
             topic_id = self.current_quiz['topic']
 
-            # Build raw_quiz
+            # ====== Create raw_quiz in C's expected format ======
+            # C's adapter expects:
+            # {
+            #     "user_id": str,
+            #     "topic_id": str,      # ← NOT "topic"
+            #     "timestamp": str,
+            #     "difficulty": "easy/medium/hard",
+            #     "questions": [{"is_correct": bool}, ...]  # ← NOT "answers"
+            # }
             raw_quiz = {
-                "quiz_id": self.current_quiz.get('quiz_id', 'test_quiz'),
-                "topic": topic_id,
-                "answers": answers
+                "user_id": self.user_id,
+                "topic_id": topic_id,
+                "timestamp": datetime.now().isoformat(),
+                "difficulty": self._map_difficulty_to_string(self.current_difficulty_int),
+                "questions": [
+                    {"is_correct": ans["answer"] == ans["correct_answer"]}
+                    for ans in answers
+                ]
             }
             
             # === C's Evaluation Pipeline ===
             print("📊 Evaluating with the system...")
         
+            # Step 1: Adapt to QuizAdapterOutput
             adapted = adapt_quiz_result(raw_quiz)
-            score = self.evaluator.evaluate_quiz(adapted.results, adapted.topic_id)
+            
+            # Step 2: Evaluate quiz
+            # C's evaluator.evaluate_quiz() expects a QuizAdapterOutput object
+            score = self.evaluator.evaluate_quiz(adapted)
+            
+            # Step 3: Build mastery sample
+            # C's evaluator.build_mastery_sample() expects:
+            # - quiz: QuizAdapterOutput
+            # - qa: Optional[QAAdapterOutput]
             sample = self.evaluator.build_mastery_sample(
-                self.user_id,
-                adapted.topic_id,
-                score,
-                datetime.now()
+                quiz=adapted,
+                qa=None
             )
+            
+            # Step 4: Record to storage
             self.tracker.record_mastery_sample(sample)
         
             print(f"✅ Recorded: {score:.1%} mastery for '{topic_id}'")
         
-            # detailed results
+            # Build detailed results
             results_detail = []
             for i, ans in enumerate(answers, 1):
                 is_correct = ans['answer'] == ans['correct_answer']
@@ -338,17 +418,20 @@ class LearningAssistant:
             }
 
     # ======================================================
-    #                     PROGRESS
+    #                   PROGRESS TRACKING (C)
     # ======================================================
     
     def get_progress(self, topic_id: str = None) -> dict:
         """
-        Get learning progress for a topic or overall.
-        Uses C's tracker.
+        Get learning progress using C's ProgressTracker.
+        
+        Returns:
+            If topic_id provided: mastery for that topic
+            If no topic_id: overall mastery + all topics
         """
         try:
             if topic_id:
-                # Get mastery for specific topic
+                # Specific topic mastery
                 mastery = self.tracker.compute_topic_mastery(self.user_id, topic_id)
                 return {
                     "success": True,
@@ -356,7 +439,7 @@ class LearningAssistant:
                     "mastery": mastery
                 }
             else:
-                # Get overall mastery
+                # Overall mastery
                 overall = self.tracker.compute_overall_mastery(self.user_id)
                 topics = self.storage.get_topics(self.user_id)
                 topic_masteries = {
@@ -376,15 +459,10 @@ class LearningAssistant:
 
     def get_learning_curve(self, topic_id: str) -> dict:
         """
-        Get learning curve data for visualization (for D).
-        Uses C's tracker.
+        Get learning curve data using C's ProgressTracker.
         
-        Returns:
-            {
-                'success': bool,
-                'topic_id': str,
-                'curve': [(timestamp, mastery), ...]
-            }
+        Returns time-series data showing mastery progression over time.
+        (For visualization by D)
         """
         try:
             curve = self.tracker.get_learning_curve(self.user_id, topic_id)
@@ -399,10 +477,15 @@ class LearningAssistant:
                 "message": str(e)
             }
 
+    # ======================================================
+    #                   RECOMMENDATIONS (C)
+    # ======================================================
+
     def next_recommendation(self) -> dict:
         """
-        Get next learning step recommendation.
-        Uses C's adaptive engine.
+        Get next learning step recommendation using C's AdaptiveEngine.
+        
+        Returns suggested topic, difficulty, and action type.
         """
         try:
             suggestion = self.adaptive.suggest_next_step(self.user_id)
@@ -418,26 +501,29 @@ class LearningAssistant:
 
 
 # ============================================================
-#                COMMAND LINE TEST (Week 2)
+#                COMMAND LINE INTERFACE
 # ============================================================
 
 def main():
-    """Command-line interface for testing"""
+    """Command-line interface for testing the integrated system"""
     assistant = LearningAssistant()
 
-    print("\n🚀 Week 2 AI Learning Assistant (with C's evaluation system)\n")
-    print("Commands:")
+    print("\n" + "="*60)
+    print("🚀 AI Learning Assistant")
+    print("   B's Content System + C's Adaptive Learning")
+    print("="*60)
+    print("\nCommands:")
     print("  upload <path>     - Upload course PDF")
-    print("  explain <concept> - Get adaptive explanation")
     print("  ask <question>    - Ask a question")
-    print("  quiz <topic> [n]  - Generate quiz (default 5 questions)")
-    print("  show              - Show quiz again (without answers)")
-    print("  show answers      - Show quiz with correct answers")
-    print("  submit <A B C>    - Submit your answers (e.g., 'submit A B C D A')")
-    print("  submit            - Auto-test mode (uses correct answers)")
+    print("  explain <concept> - Get adaptive explanation")
+    print("  quiz <topic> [n]  - Generate quiz (shows immediately)")
+    print("  show              - Show quiz (without answers)")
+    print("  show answers      - Show quiz with answers")
+    print("  submit <A B C>    - Submit answers (e.g., 'submit A B C D A')")
+    print("  submit            - Auto-test (uses correct answers)")
     print("  progress [topic]  - View progress")
     print("  curve <topic>     - View learning curve")
-    print("  next              - Get next recommendation")
+    print("  next              - Get recommendation")
     print("  quit              - Exit\n")
 
     while True:
@@ -447,29 +533,34 @@ def main():
             if not cmd:
                 continue
 
+            # === UPLOAD ===
             if cmd.startswith("upload "):
                 path = cmd.split(" ", 1)[1]
                 result = assistant.upload_course(path)
-                print(result)
+                if not result["success"]:
+                    print(f"❌ {result['message']}")
 
+            # === ASK ===
+            elif cmd.startswith("ask "):
+                question = cmd.split(" ", 1)[1]
+                result = assistant.ask_question(question)
+                if result["success"]:
+                    print(f"\n💬 Answer:\n{result['answer']}\n")
+                else:
+                    print(f"❌ {result['message']}")
+
+            # === EXPLAIN ===
             elif cmd.startswith("explain "):
                 concept = cmd.split(" ", 1)[1]
                 result = assistant.explain_concept(concept)
                 if result["success"]:
                     print(f"\n📚 Concept: {result['concept']}")
-                    print(f"Difficulty: {result['difficulty']}/5")
-                    print(f"Explanation: {result['explanation']}\n")
+                    print(f"🎯 Difficulty: {result['difficulty']}/5")
+                    print(f"💡 Explanation:\n{result['explanation']}\n")
                 else:
                     print(f"❌ {result['message']}")
 
-            elif cmd.startswith("ask "):
-                question = cmd.split(" ", 1)[1]
-                result = assistant.ask_question(question)
-                if result["success"]:
-                    print(f"\n💡 Answer: {result['answer']}\n")
-                else:
-                    print(f"❌ {result['message']}")
-
+            # === QUIZ ===
             elif cmd.startswith("quiz "):
                 parts = cmd.split()
                 topic = parts[1]
@@ -483,18 +574,20 @@ def main():
                     print(f"📋 {len(quiz['questions'])} Questions\n")
                     print("─" * 60)
         
+                    # Display questions immediately (without answers)
                     for i, q in enumerate(quiz['questions'], 1):
                         print(f"\nQuestion {i}: {q['question']}")
                         for opt in q['options']:
                             print(f"  {opt}")
         
                     print("\n" + "─" * 60)
-                    print(f"💡 Type 'submit A B C D ...' to submit your answers")
+                    print(f"💡 Type 'submit A B C ...' to submit your answers")
                     print(f"💡 Type 'submit' to auto-test with correct answers")
                     print(f"💡 Type 'show answers' to see correct answers\n")
                 else:
                     print(f"❌ {result['message']}")
                     
+            # === SHOW ===
             elif cmd.startswith("show"):
                 show_answers = "answers" in cmd.lower()
                 result = assistant.show_quiz(show_answers=show_answers)
@@ -516,6 +609,7 @@ def main():
                 else:
                     print(f"❌ {result['message']}")
 
+            # === SUBMIT ===
             elif cmd.startswith("submit"):
                 parts = cmd.split()
     
@@ -524,7 +618,7 @@ def main():
                     print("\n📤 Submitting quiz (auto-test mode)...")
                     result = assistant.submit_quiz()
                 else:
-                    # submit A B C D - user-answer
+                    # submit A B C D - user answers
                     user_answers = parts[1:]
                     print(f"\n📤 Submitting your answers: {' '.join(user_answers)}")
                     result = assistant.submit_quiz(user_answers)
@@ -535,69 +629,76 @@ def main():
                     print(f"  ✓ Correct: {result['correct']}/{result['total']}")
                     print(f"  📚 Topic: {result['topic_id']}")
         
-                    # show detailed results
+                    # Show detailed results
                     print(f"\n  📋 Details:")
                     for detail in result['details']:
                         status = "✅" if detail['is_correct'] else "❌"
                         print(f"    Q{detail['question_num']}: {status} "
-                            f"You: {detail['user_answer']} | "
-                            f"Correct: {detail['correct_answer']}")
+                              f"You: {detail['user_answer']} | "
+                              f"Correct: {detail['correct_answer']}")
                     print()
                 else:
                     print(f"❌ {result['message']}")
 
+            # === PROGRESS ===
             elif cmd.startswith("progress"):
                 parts = cmd.split(maxsplit=1)
                 topic = parts[1] if len(parts) > 1 else None
                 result = assistant.get_progress(topic)
+                
                 if result["success"]:
                     if topic:
                         print(f"\n📊 Progress for '{topic}':")
-                        print(f"  Mastery: {result['mastery']:.1%}\n")
+                        print(f"  🎯 Mastery: {result['mastery']:.1%}\n")
                     else:
                         print(f"\n📊 Overall Progress:")
-                        print(f"  Overall Mastery: {result['overall_mastery']:.1%}")
-                        print(f"  Topics:")
+                        print(f"  🌟 Overall: {result['overall_mastery']:.1%}")
+                        print(f"  📚 By Topic:")
                         for t, m in result['topics'].items():
-                            print(f"    {t}: {m:.1%}")
+                            print(f"    • {t}: {m:.1%}")
                         print()
                 else:
                     print(f"❌ {result['message']}")
 
+            # === LEARNING CURVE ===
             elif cmd.startswith("curve "):
                 topic = cmd.split(" ", 1)[1]
                 result = assistant.get_learning_curve(topic)
                 if result["success"]:
-                    print(f"\n📈 Learning curve for '{topic}':")
+                    print(f"\n📈 Learning Curve for '{topic}':")
                     for timestamp, mastery in result['curve']:
                         print(f"  {timestamp}: {mastery:.1%}")
                     print()
                 else:
                     print(f"❌ {result['message']}")
 
+            # === RECOMMENDATION ===
             elif cmd == "next":
                 result = assistant.next_recommendation()
                 if result["success"]:
                     s = result["suggestion"]
                     print(f"\n🎯 Next Recommendation:")
-                    print(f"  Topic: {s['next_topic_id']}")
-                    print(f"  Difficulty: {s['difficulty']}")
-                    print(f"  Action: {s['action_type']}\n")
+                    print(f"  📚 Topic: {s['next_topic_id']}")
+                    print(f"  🎲 Difficulty: {s['difficulty']}")
+                    print(f"  🎬 Action: {s['action_type']}\n")
                 else:
                     print(f"❌ {result['message']}")
 
+            # === QUIT ===
             elif cmd == "quit":
-                print("👋 Goodbye!")
+                print("\n👋 Goodbye!\n")
                 break
 
             else:
-                print("❌ Unknown command")
+                print("❌ Unknown command. Type a command or 'quit' to exit.")
 
         except KeyboardInterrupt:
-            print("\n\n👋 Interrupted")
+            print("\n\n👋 Interrupted. Goodbye!\n")
             break
         except Exception as e:
             print(f"❌ Error: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 if __name__ == "__main__":
