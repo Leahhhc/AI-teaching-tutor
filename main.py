@@ -43,7 +43,7 @@ class LearningAssistant:
         # B's mock components
         self.parser = LectureParser()
         self.tutor = TutorAgent()
-        self.quiz_gen = QuizAgent()
+        self.quiz_gen = QuizAgent(self.storage)
 
         # C's evaluation components
         self.evaluator = Evaluator()
