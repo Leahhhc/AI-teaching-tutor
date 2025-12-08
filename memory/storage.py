@@ -1,51 +1,48 @@
 from __future__ import annotations
-
+import os
+import shutil
 from collections import defaultdict
-from typing import DefaultDict, Dict, List
+from typing import DefaultDict, Dict, List, Optional
 
+# --- NEW IMPORTS (Fixes Warnings) ---
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+
+# --- Core Import ---
 from core import MasterySample
 
-
 class Storage:
-    """
-    Very simple in-memory storage for mastery samples.
-
-    Data layout:
-        _data[user_id][topic_id] = [MasterySample, MasterySample, ...]
-    """
-
     def __init__(self) -> None:
+        # --- PART 1: Mastery Storage ---
         self._data: DefaultDict[str, DefaultDict[str, List[MasterySample]]] = (
             defaultdict(lambda: defaultdict(list))
         )
 
-    # --------------------------------------------------------------------- #
-    #  Write operations
-    # --------------------------------------------------------------------- #
+        # --- PART 2: Vector DB Storage ---
+        self.embedding_function = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        self.persist_dir = "./chroma_db"
 
+        self.db = Chroma(
+            persist_directory=self.persist_dir,
+            embedding_function=self.embedding_function
+        )
+
+    # --- Mastery Operations ---
     def append_mastery_sample(self, sample: MasterySample) -> None:
-        """
-        Append a single MasterySample to the in-memory store.
-        """
-        user_id = sample.user_id
-        topic_id = sample.topic_id
-        self._data[user_id][topic_id].append(sample)
-
-    # --------------------------------------------------------------------- #
-    #  Read operations
-    # --------------------------------------------------------------------- #
+        self._data[sample.user_id][sample.topic_id].append(sample)
 
     def get_samples(self, user_id: str, topic_id: str) -> List[MasterySample]:
-        """
-        Return all samples for a given user and topic.
-
-        The insertion order is preserved, but callers may still want to sort
-        by timestamp explicitly if they rely on chronological order.
-        """
         return list(self._data[user_id][topic_id])
 
     def get_topics(self, user_id: str) -> List[str]:
-        """
-        Return all topic_ids that have at least one sample for the user.
-        """
         return list(self._data[user_id].keys())
+
+    # --- Vector DB Operations ---
+    def add_documents(self, documents):
+        if documents:
+            self.db.add_documents(documents)
+            print(f"Stored {len(documents)} chunks to vector database.")
+
+    def query(self, question: str, k: int = 3):
+        if not self.db: return []
+        return self.db.similarity_search(question, k=k)
