@@ -20,10 +20,10 @@ class MasterySample:
     """
     user_id: str
     topic_id: str
-    timestamp: str          # ISO8601 format
-    mastery_observation: float  # 0-1
-    num_questions: int
-    difficulty: str         # "easy" / "medium" / "hard"
+    timestamp: datetime
+    score: float  # value in [0, 1]
+    num_questions: Optional[int] = None
+    difficulty: Optional[str] = None  # "easy" / "medium" / "hard"
 ```
 
 ---
