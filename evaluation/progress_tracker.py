@@ -52,9 +52,9 @@ class ProgressTracker:
         # Sort by timestamp in case storage does not guarantee ordering.
         samples = sorted(samples, key=lambda s: s.timestamp)
 
-        m = samples[0].mastery_observation
+        m = samples[0].score
         for s in samples[1:]:
-            obs = s.mastery_observation
+            obs = s.score
             m = self.alpha * obs + (1.0 - self.alpha) * m
 
         return m
@@ -96,11 +96,11 @@ class ProgressTracker:
         samples = sorted(samples, key=lambda s: s.timestamp)
 
         curve: List[Tuple[str, float]] = []
-        m = samples[0].mastery_observation
+        m = samples[0].score
         curve.append((samples[0].timestamp, m))
 
         for s in samples[1:]:
-            obs = s.mastery_observation
+            obs = s.score
             m = self.alpha * obs + (1.0 - self.alpha) * m
             curve.append((s.timestamp, m))
 

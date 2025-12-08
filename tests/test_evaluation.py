@@ -81,7 +81,7 @@ def test_evaluator_mastery_with_and_without_qa():
     sample_with_qa = evaluator.build_mastery_sample(quiz, qa)
     sample_without_qa = evaluator.build_mastery_sample(quiz, None)
 
-    assert sample_with_qa.mastery_observation >= sample_without_qa.mastery_observation
+    assert sample_with_qa.score >= sample_without_qa.score
 
 
 def test_progress_tracker_ema_increasing():

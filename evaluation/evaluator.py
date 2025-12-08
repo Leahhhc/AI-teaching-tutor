@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 from core import MasterySample
+from datetime import datetime
 from .adapters import QuizAdapterOutput, QAAdapterOutput
 
 
@@ -92,8 +93,8 @@ class Evaluator:
         return MasterySample(
             user_id=quiz.user_id,
             topic_id=quiz.topic_id,
-            timestamp=quiz.timestamp,
-            mastery_observation=raw_mastery,
+            timestamp=datetime.fromisoformat(quiz.timestamp),
+            score=raw_mastery,
             num_questions=len(quiz.questions),
             difficulty=quiz.difficulty,
         )
