@@ -227,8 +227,6 @@ class LearningAssistant:
             difficulty_int = self._get_adaptive_difficulty_int(topic)
             self.current_difficulty_int = difficulty_int  # Store for submit
             
-            print(f"🔍 Generating {num_questions} questions for: {topic} (Difficulty: {difficulty_int}/5)")
-            
             # Call B's quiz generator (queries vector DB internally)
             quiz = self.quiz_gen.generate_quiz(
                 topic, 
