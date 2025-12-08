@@ -1,2 +1,0 @@
-class QuizAgent:
-    pass
