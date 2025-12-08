@@ -42,7 +42,7 @@ class LearningAssistant:
 
         # B's mock components
         self.parser = LectureParser()
-        self.tutor = TutorAgent()
+        self.tutor = TutorAgent(self.storage)
         self.quiz_gen = QuizAgent(self.storage)
 
         # C's evaluation components
@@ -51,6 +51,7 @@ class LearningAssistant:
         self.adaptive = AdaptiveEngine(storage=self.storage, tracker=self.tracker)
 
         self.current_course = None
+        self.current_quiz = None
 
     # ======================================================
     #                   HELPER METHODS
@@ -183,6 +184,8 @@ class LearningAssistant:
                 difficulty_int, 
                 num_questions
             )
+            
+            self.current_quiz = quiz
 
             return {
                 "success": True,
@@ -194,8 +197,30 @@ class LearningAssistant:
                 "success": False,
                 "message": str(e)
             }
+    
+    def show_quiz(self) -> dict:
+        """
+        Display the current quiz questions.
+        Returns the current quiz if available.
+        """
+        try:
+            if not self.current_quiz:
+                return {
+                    "success": False,
+                    "message": "No quiz generated yet. Use 'quiz <topic>' first."
+                }
+        
+            return {
+                "success": True,
+                "quiz": self.current_quiz
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": str(e)
+            }
 
-    def submit_quiz(self, quiz_id: str, answers: List[Dict]) -> dict:
+    def submit_quiz(self, answers: List[Dict] = None) -> dict:
         """
         Submit quiz answers and evaluate using C's evaluation system.
         
@@ -223,6 +248,24 @@ class LearningAssistant:
                 ]
         """
         try:
+            if answers is None:
+                if not self.current_quiz:
+                    return {
+                        "success": False,
+                        "message": "No current quiz. Generate a quiz first."
+                    }
+            
+            # Auto-generate answers for testing
+            answers = []
+            for q in self.current_quiz['questions']:
+                answers.append({
+                    'question_id': q['question_id'],
+                    'answer': q['correct_answer'], 
+                    'correct_answer': q['correct_answer'],
+                    'topic_id': self.current_quiz['topic']
+                })
+            print("⚠️  Using auto-generated answers for testing")
+        
             # Validate input
             if not answers:
                 return {
@@ -367,11 +410,12 @@ def main():
 
     print("\n🚀 Week 2 AI Learning Assistant (with C's evaluation system)\n")
     print("Commands:")
-    print("  upload <path>     - Upload course material")
-    print("  explain <concept> - Explain a concept")
+    print("  upload <path>     - Upload course PDF")
+    print("  explain <concept> - Get adaptive explanation")
     print("  ask <question>    - Ask a question")
-    print("  quiz <topic>      - Generate quiz")
-    print("  submit            - Submit quiz with test answers")
+    print("  quiz <topic> [n]  - Generate quiz (default 5 questions)")
+    print("  show              - Show current quiz questions")           # 新增
+    print("  submit            - Submit and evaluate current quiz")      # 修改
     print("  progress [topic]  - View progress")
     print("  curve <topic>     - View learning curve")
     print("  next              - Get next recommendation")
@@ -414,39 +458,34 @@ def main():
                     print(f"\n📝 Quiz generated:")
                     print(f"  Topic: {result['quiz']['topic']}")
                     print(f"  Difficulty: {result['difficulty']}/5")
-                    print(f"  Questions: {len(result['quiz']['questions'])}\n")
+                    print(f"  Questions: {len(result['quiz']['questions'])}")
+                    print(f"\n💡 Type 'show' to see questions")
+                    print(f"💡 Type 'submit' to evaluate\n")
+                else:
+                    print(f"❌ {result['message']}")
+                    
+            elif cmd == "show":
+                result = assistant.show_quiz()
+                if result["success"]:
+                    quiz = result['quiz']
+                    print(f"\n📝 Current Quiz: {quiz['topic']}\n")
+                    for i, q in enumerate(quiz['questions'], 1):
+                        print(f"Question {i}: {q['question']}")
+                        for opt in q['options']:
+                            print(f"  {opt}")
+                        print(f"  ✅ Correct: {q['correct_answer']}")
+                        print()
                 else:
                     print(f"❌ {result['message']}")
 
             elif cmd == "submit":
-                # Test submission with fixed answers
-                print("\n📤 Submitting test quiz answers...")
-                answers = [
-                    {
-                        "question_id": "q1",
-                        "answer": "correct",
-                        "correct_answer": "correct",
-                        "topic_id": "math"
-                    },
-                    {
-                        "question_id": "q2",
-                        "answer": "wrong",
-                        "correct_answer": "right",
-                        "topic_id": "math"
-                    },
-                    {
-                        "question_id": "q3",
-                        "answer": "correct",
-                        "correct_answer": "correct",
-                        "topic_id": "math"
-                    },
-                ]
-                result = assistant.submit_quiz("test_quiz", answers)
+                print("\n📤 Submitting quiz...")
+                result = assistant.submit_quiz()
                 if result["success"]:
-                    print(f"✅ Quiz submitted!")
-                    print(f"  Score: {result['score']:.2%}")
-                    print(f"  Correct: {result['correct']}/{result['total']}")
-                    print(f"  Topic: {result['topic_id']}\n")
+                    print(f"\n✅ Quiz Evaluated!")
+                    print(f"  📊 Score: {result['score']:.2%}")
+                    print(f"  ✓ Correct: {result['correct']}/{result['total']}")
+                    print(f"  📚 Topic: {result['topic_id']}\n")
                 else:
                     print(f"❌ {result['message']}")
 
