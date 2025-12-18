@@ -32,7 +32,7 @@ def get_assistant() -> LearningAssistant:
 def init_state():
     """Initialize UI-related session state."""
     if "chat_history" not in st.session_state:
-        st.session_state["chat_history"] = []  # [{role, content}]
+        st.session_state["chat_history"] = []
     if "current_course" not in st.session_state:
         st.session_state["current_course"] = None
     if "current_quiz" not in st.session_state:
@@ -213,7 +213,7 @@ with tab_quiz:
         for idx, q in enumerate(quiz["questions"]):
             st.markdown(f"**Q{idx + 1}. {q['question']}**")
 
-            option_keys = list(q["options"].keys())  # ["A","B","C","D"]
+            option_keys = list(q["options"].keys())
 
             def _fmt(opt_key: str) -> str:
                 return f"{opt_key}. {q['options'][opt_key]}"
@@ -223,8 +223,9 @@ with tab_quiz:
                 option_keys,
                 format_func=_fmt,
                 key=f"quiz_q_{idx}",
+                index=None,
             )
-            st.write("")  # small spacing
+            st.write("")
 
         if st.button("Submit Quiz"):
             answers: List[str] = []
@@ -316,7 +317,7 @@ with tab_progress:
             if st.button("Show learning curve"):
                 curve_result = assistant.get_learning_curve(topic_for_curve)
                 if curve_result.get("success"):
-                    curve = curve_result["curve"]  # list of (timestamp, mastery)
+                    curve = curve_result["curve"]
                     if curve:
                         ts = [c[0] for c in curve]
                         vals = [c[1] for c in curve]

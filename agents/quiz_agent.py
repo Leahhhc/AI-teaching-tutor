@@ -52,11 +52,19 @@ class QuizAgent:
                 question_text = question_match.group(1).strip() if question_match else "Could not parse question."
 
                 # 3. Extract Options (A, B, C, D)
-                options = []
-                for char in ['A', 'B', 'C', 'D']:
-                    opt_match = re.search(rf"{char}\)\s*(.*?)(?=\n[A-D]\)|\nCorrect|\nExplanation|$)", block, re.DOTALL)
+                options: Dict[str, str] = {}
+                for char in ["A", "B", "C", "D"]:
+                    opt_match = re.search(
+                        rf"{char}\)\s*(.*?)(?=\n[A-D]\)|\nCorrect Answer:|\nExplanation:|$)",
+                        block,
+                        re.DOTALL
+                    )
                     if opt_match:
-                        options.append(f"{char}) {opt_match.group(1).strip()}")
+                        options[char] = opt_match.group(1).strip()
+
+                # Fallback if parsing fails
+                if len(options) != 4:
+                    options = {"A": "Error", "B": "Error", "C": "Error", "D": "Error"}
                 
                 # Fallback if parsing fails
                 if not options:
@@ -145,7 +153,7 @@ Constraint: Target Difficulty Level {difficulty}/5.
             questions_list = [{
                 "question_id": str(uuid.uuid4())[:8],
                 "question": "Failed to generate questions. Please try again.",
-                "options": ["A) Retry", "B) Retry", "C) Retry", "D) Retry"],
+                "options": {"A": "Retry", "B": "Retry", "C": "Retry", "D": "Retry"},
                 "correct_answer": "A",
                 "explanation": "The model output could not be parsed."
             }]
