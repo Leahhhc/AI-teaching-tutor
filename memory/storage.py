@@ -2,7 +2,9 @@ from __future__ import annotations
 import os
 import shutil
 from collections import defaultdict
-from typing import DefaultDict, Dict, List, Optional
+from typing import DefaultDict, Dict, List, Optional, Any
+import re
+import unicodedata
 
 # --- NEW IMPORTS (Fixes Warnings) ---
 from langchain_chroma import Chroma
@@ -26,6 +28,44 @@ class Storage:
             persist_directory=self.persist_dir,
             embedding_function=self.embedding_function
         )
+    
+    def add_texts(self, texts: List[Any], metadatas: Optional[List[Dict]] = None):
+        clean_texts: List[str] = []
+        clean_metas: List[Dict] = []
+
+        for i, t in enumerate(texts):
+            if t is None:
+                continue
+            if not isinstance(t, str):
+                t = str(t)
+
+            t = self._sanitize_text(t)
+            if not t:
+                continue
+
+            clean_texts.append(t)
+            if metadatas:
+                clean_metas.append(metadatas[i])
+
+        if clean_texts:
+            self.db.add_texts(
+                texts=clean_texts,
+                metadatas=clean_metas if metadatas else None
+            )
+
+    def _sanitize_text(self, s: str) -> str:
+        # Normalize unicode (fixes odd PDF glyph variants)
+        s = unicodedata.normalize("NFKC", s)
+
+        # Remove null bytes and other nasty control chars (keep \n and \t)
+        s = s.replace("\x00", " ")
+        s = "".join(ch for ch in s if ch.isprintable() or ch in "\n\t")
+
+        # Collapse excessive whitespace
+        s = re.sub(r"[ \t]+", " ", s)
+        s = re.sub(r"\n{3,}", "\n\n", s)
+
+        return s.strip()
 
     # --- Mastery Operations ---
     def append_mastery_sample(self, sample: MasterySample) -> None:

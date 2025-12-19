@@ -33,9 +33,12 @@ class LectureParser:
             text = page.extract_text()
             if text: full_text += text + "\n"
 
-        # Your Side Effect (Storing to DB) - This is fine to keep!
-        chunks = self.text_splitter.create_documents([full_text])
-        self.storage.add_documents(chunks)
+        # Split into plain text chunks (List[str]) so embeddings never see non-strings
+        texts = self.text_splitter.split_text(full_text)
+
+        # Store as texts
+        metas = [{"source": os.path.basename(file_path), "chunk": i} for i in range(len(texts))]
+        self.storage.add_texts(texts, metadatas=metas)
 
         # REQUIRED RETURN FORMAT
         return {

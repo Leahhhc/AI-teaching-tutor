@@ -7,6 +7,10 @@ import pandas as pd
 
 from main import LearningAssistant
 
+# import inspect
+# from parsers.lecture_parser import LectureParser
+# from memory.storage import Storage
+
 
 # ---------- Helpers ----------
 
@@ -62,15 +66,16 @@ assistant = get_assistant()
 with st.sidebar:
     st.header("👤 User & Course")
 
-    # user id
     user_id = st.text_input("User ID", value=st.session_state["user_id"])
     if user_id != st.session_state["user_id"]:
         st.session_state["user_id"] = user_id
         assistant = get_assistant()
 
+    # st.caption(f"DEBUG LectureParser file: {inspect.getfile(LectureParser)}")
+    # st.caption(f"DEBUG Storage file: {inspect.getfile(Storage)}")
+
     st.markdown("---")
 
-    # upload course PDF
     uploaded = st.file_uploader("Upload course PDF", type=["pdf"])
     if uploaded is not None:
         if st.button("📚 Process & Index Course"):

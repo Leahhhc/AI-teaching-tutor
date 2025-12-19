@@ -153,6 +153,7 @@ Constraint: Target Difficulty Level {difficulty}/5.
             questions_list = [{
                 "question_id": str(uuid.uuid4())[:8],
                 "question": "Failed to generate questions. Please try again.",
+                # "options": ["A) Retry", "B) Retry", "C) Retry", "D) Retry"],
                 "options": {"A": "Retry", "B": "Retry", "C": "Retry", "D": "Retry"},
                 "correct_answer": "A",
                 "explanation": "The model output could not be parsed."
