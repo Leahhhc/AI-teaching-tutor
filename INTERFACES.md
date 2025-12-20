@@ -1,4 +1,31 @@
-# Module Interface Specification (Updated for Week 2)
+# Module Interface Specification
+
+**Project:** AI Teaching Tutor  
+**Course:** Columbia COMS4995_032 Applied Machine Learning  
+**Last Updated:** 2025.12
+
+---
+
+## Prerequisites & Configuration
+
+### Environment Variables
+```bash
+# .env file (required)
+HF_TOKEN=your_hugging_face_token_here
+```
+
+### System Requirements
+- **Python:** 3.8+
+- **RAM:** 8 GB minimum, 16 GB recommended
+- **VRAM:** 4 GB (with 4-bit quantization)
+- **First Load:** 30-60 seconds (downloads Phi-3), subsequent runs <1s
+
+### Setup
+1. Get HF token: https://huggingface.co/settings/tokens
+2. `cp .env.example .env` and add your token
+3. `pip install -r requirements.txt`
+
+---
 
 ## Overview
 
@@ -37,7 +64,7 @@ class LectureParser:
     """
     Owner: B
     Purpose: Parse course material files (PDF) and store chunks in the vector database.
-    Status: IMPLEMENTED
+    Status: IMPLEMENTED & TESTED
     """
 
     def __init__(self, storage=None):
@@ -83,7 +110,7 @@ class TutorAgent:
     """
     Owner: B
     Purpose: RAG-enabled teaching explanation and Q&A using Phi-3 model.
-    Status: IMPLEMENTED
+    Status: IMPLEMENTED & TESTED
     """
 
     def __init__(self, storage=None):
@@ -147,7 +174,7 @@ class QuizAgent:
     """
     Owner: B
     Purpose: Generate multiple-choice quiz questions based on course material using Phi-3.
-    Status: IMPLEMENTED
+    Status: IMPLEMENTED & TESTED
     """
 
     def __init__(self, storage):
@@ -183,7 +210,12 @@ class QuizAgent:
                     {
                         'question_id': str,
                         'question': str,
-                        'options': [str, str, str, str],
+                        'options': {
+                            'A': str,
+                            'B': str,
+                            'C': str,
+                            'D': str
+                        },
                         'correct_answer': str (e.g., "A"),
                         'explanation': str
                     },
@@ -205,7 +237,7 @@ class Evaluator:
     """
     Owner: C
     Purpose: Evaluate quiz/QA results and produce MasterySample
-    Status: IMPLEMENTED
+    Status: IMPLEMENTED & TESTED
     """
     
     def __init__(self, quiz_weight: float = 0.7, qa_weight: float = 0.3):
@@ -266,7 +298,7 @@ class ProgressTracker:
     """
     Owner: C
     Purpose: Track learning progress using EMA (Exponential Moving Average)
-    Status: IMPLEMENTED
+    Status: IMPLEMENTED & TESTED
     """
     
     def __init__(self, storage: Storage, alpha: float = 0.6):
@@ -340,9 +372,9 @@ class ProgressTracker:
             
         Example:
             [
-                ('2024-01-15T10:30:00', 0.45),
-                ('2024-01-15T14:20:00', 0.62),
-                ('2024-01-16T09:15:00', 0.78)
+                ('2026-01-13T10:30:00', 0.45),
+                ('2026-01-14T14:20:00', 0.62),
+                ('2026-01-15T09:15:00', 0.78)
             ]
             
         Note:
@@ -358,7 +390,7 @@ class AdaptiveEngine:
     """
     Owner: C
     Purpose: Recommend next learning steps and adaptive difficulty
-    Status: IMPLEMENTED
+    Status: IMPLEMENTED & TESTED
     """
     
     def __init__(
@@ -410,48 +442,16 @@ class AdaptiveEngine:
             - mastery >= 0.7: "challenge_quiz" or "advanced_problems"
         """
         pass
-    
-    def get_adaptive_difficulty(self, user_id: str, topic_id: str) -> int:
-        """
-        Get recommended difficulty level for a topic based on current mastery
-        
-        Args:
-            user_id: User ID
-            topic_id: Topic ID
-        
-        Returns:
-            Difficulty level 1-5:
-                2: Easy (mastery < 0.4)
-                3: Medium (0.4 <= mastery < 0.7)
-                4: Hard (mastery >= 0.7)
-            Returns 3 (medium) if no data exists
-            
-        Note:
-            This is a RECOMMENDED addition to C's AdaptiveEngine to support
-            the main application's need for numeric difficulty levels.
-            C's existing suggest_next_step() returns difficulty as strings
-            ("easy"/"medium"/"hard"), while B's agents expect integers (1-5).
-            
-        Implementation suggestion:
-            ```python
-            topics = self.storage.get_topics(user_id)
-            if topic_id not in topics:
-                return 3  # default medium
-            
-            mastery = self.tracker.compute_topic_mastery(user_id, topic_id)
-            if mastery < self.low:
-                return 2  # easy
-            elif mastery < self.mid:
-                return 3  # medium
-            else:
-                return 4  # hard
-            ```
-            
-        Alternative (if not implemented by C):
-            A's main.py can directly implement this logic inline.
-        """
-        pass
 ```
+
+**Difficulty Mapping Reference:**
+| Mastery Range | Difficulty | Integer | Used By |
+|---------------|------------|---------|---------|
+| < 0.2         | Very Easy  | 1       | -       |
+| 0.2 - 0.4     | Easy       | 2       | A's helper |
+| 0.4 - 0.7     | Medium     | 3 (default) | A's helper |
+| 0.7 - 0.9     | Hard       | 4       | A's helper |
+| >= 0.9        | Very Hard  | 5       | -       |
 
 ### 4. `evaluation/adapters.py`
 
@@ -528,6 +528,87 @@ def adapt_qa_result(raw_qa: Optional[Dict[str, Any]]) -> Optional[QAAdapterOutpu
 
 ---
 
+## D's Interface (Frontend & Visualization)
+
+### `app.py` - Streamlit Dashboard
+
+**Owner:** Team D  
+**Status:** IMPLEMENTED & TESTED  
+**Framework:** Streamlit  
+**Run:** `streamlit run app.py`
+
+#### Main Components
+
+```python
+# Four main tabs in the interface:
+
+# 1. 💬 Tutor Chat
+#    - Ask questions
+#    - Explain concepts
+#    - Uses TutorAgent with adaptive difficulty
+
+# 2. 📝 Quiz
+#    - Generate adaptive quizzes
+#    - Interactive question answering
+#    - Submit and get detailed feedback
+
+# 3. 📊 Progress
+#    - Overall mastery metric
+#    - Topic-by-topic breakdown
+#    - Learning curve visualization
+
+# 4. 🎯 Next Step
+#    - Personalized recommendations
+#    - Suggested topic and difficulty
+```
+
+#### Key UI Functions
+
+```python
+def get_assistant() -> LearningAssistant:
+    """Get or create a LearningAssistant bound to the current user."""
+    pass
+
+def init_state():
+    """Initialize UI-related session state."""
+    # Session state includes:
+    # - chat_history: List of chat messages
+    # - current_course: Uploaded course info
+    # - current_quiz: Active quiz data
+    # - last_quiz_result: Latest quiz submission result
+    pass
+```
+
+#### Features Implemented
+
+**Course Upload:**
+- PDF file upload via `st.file_uploader`
+- Temporary file handling
+- Vector DB indexing
+
+**Chat Interface:**
+- Two modes: "Ask a question" and "Explain a concept"
+- Chat history display
+- Real-time responses from TutorAgent
+
+**Quiz Interface:**
+- Topic input and question count slider
+- Adaptive difficulty generation
+- Radio button answer selection
+- Detailed feedback with explanations
+
+**Progress Visualization:**
+- Pandas DataFrame for topic overview
+- Streamlit metrics for overall mastery
+- Plotly line charts for learning curves
+
+**Dependencies:**
+- `streamlit>=1.31.0`
+- `plotly>=5.18.0`
+- `pandas>=2.0.0`
+
+---
+
 ## Storage Interface
 
 ### `memory/storage.py`
@@ -537,7 +618,7 @@ class Storage:
     """
     Owner: C & B
     Purpose: Shared storage handling both In-Memory Mastery data (C) and Vector Database (B).
-    Status: IMPLEMENTED
+    Status: IMPLEMENTED & TESTED
     """
 
     def __init__(self):
@@ -609,28 +690,46 @@ class Storage:
 
 ---
 
-## A's Main Application Interface (test_main.py)
+## A's Main Application Interface
 
-### `LearningAssistant` Class
+### `main.py` - LearningAssistant Class
 
 ```python
 class LearningAssistant:
     """
     Owner: A
     Purpose: Main system orchestrator integrating all modules
+    Status: IMPLEMENTED & TESTED
     
     Components:
         - B's modules: parser, tutor, quiz_gen
         - C's modules: evaluator, tracker, adaptive
-        - Storage: C's implementation
+        - Storage: Shared implementation
     """
     
     def __init__(self, user_id: str = "user1"):
+        """Initialize learning assistant with all components"""
+        pass
+    
+    # ===== Helper Methods =====
+    
+    def _get_adaptive_difficulty_int(self, topic_id: str) -> int:
         """
-        Initialize learning assistant
+        Convert mastery level to integer difficulty (1-5)
         
-        Args:
-            user_id: Default user ID for this session
+        Bridges C's mastery calculation with B's difficulty scale:
+        - mastery < 0.4  → difficulty 2 (easy)
+        - 0.4 ≤ mastery < 0.7 → difficulty 3 (medium)
+        - mastery ≥ 0.7 → difficulty 4 (hard)
+        - no data → difficulty 3 (default medium)
+        """
+        pass
+    
+    def _map_difficulty_to_string(self, difficulty_int: int) -> str:
+        """
+        Map integer difficulty (1-5) to string for C's evaluation system
+        
+        Returns: "easy", "medium", or "hard"
         """
         pass
     
@@ -656,10 +755,8 @@ class LearningAssistant:
         Explain a concept with adaptive difficulty
         
         Flow:
-            1. Check if concept exists in user's topics
-            2. If exists: compute mastery and determine difficulty
-            3. If new: use default medium difficulty (3)
-            4. Call B's tutor with adaptive difficulty
+            1. Get adaptive difficulty based on mastery
+            2. Call TutorAgent with appropriate difficulty
         
         Returns:
             {
@@ -692,9 +789,9 @@ class LearningAssistant:
         Generate quiz with adaptive difficulty
         
         Flow:
-            1. Check if topic exists in user's history
-            2. Compute mastery to determine difficulty
-            3. Call B's quiz generator with adaptive difficulty
+            1. Get adaptive difficulty based on mastery
+            2. Generate quiz with QuizAgent
+            3. Store quiz for later submission
         
         Returns:
             {
@@ -706,30 +803,38 @@ class LearningAssistant:
         """
         pass
     
-    def submit_quiz(self, quiz_id: str, answers: List[Dict]) -> dict:
+    def show_quiz(self, show_answers: bool = False) -> dict:
         """
-        Submit quiz and evaluate using C's evaluation system
-        
-        CRITICAL: This is the core integration point with C's code
+        Display the current quiz questions
         
         Args:
-            quiz_id: Quiz identifier
-            answers: List of answer dicts:
-                [
-                    {
-                        'question_id': str,
-                        'answer': str,
-                        'correct_answer': str,
-                        'topic_id': str
-                    },
-                    ...
-                ]
+            show_answers: If True, show correct answers (for debugging)
+        
+        Returns:
+            {
+                'success': bool,
+                'quiz': dict,
+                'show_answers': bool,
+                'message': str (if error)
+            }
+        """
+        pass
+    
+    def submit_quiz(self, user_answers: List[str] = None) -> dict:
+        """
+        Submit quiz answers and evaluate using C's evaluation system
+        
+        **CRITICAL INTEGRATION POINT** - Where B and C connect
+        
+        Args:
+            user_answers: List like ["A", "B", "C", "D", "A"]
+                         If None, auto-fill with correct answers for testing
         
         Flow:
-            1. Validate input (check if answers is empty)
+            1. Validate answers or auto-fill
             2. Build raw_quiz in C's adapter expected format
             3. Convert using adapt_quiz_result() → QuizAdapterOutput
-            4. Evaluate using C's evaluator.evaluate_quiz() → score
+            4. Evaluate using evaluator.evaluate_quiz() → score
             5. Build MasterySample using evaluator.build_mastery_sample()
             6. Record using tracker.record_mastery_sample()
         
@@ -740,6 +845,15 @@ class LearningAssistant:
                 'correct': int,
                 'total': int,
                 'topic_id': str,
+                'details': [
+                    {
+                        'question_num': int,
+                        'user_answer': str,
+                        'correct_answer': str,
+                        'is_correct': bool
+                    },
+                    ...
+                ],
                 'message': str (if error)
             }
         """
@@ -791,12 +905,6 @@ class LearningAssistant:
                 'curve': [(timestamp, mastery), ...],
                 'message': str (if error)
             }
-            
-        Example curve data:
-            [
-                ('2024-01-15T10:30:00', 0.45),
-                ('2024-01-15T14:20:00', 0.62)
-            ]
         """
         pass
     
@@ -823,11 +931,11 @@ class LearningAssistant:
 ## Data Flow Diagram
 
 ```
-User Input (via CLI/UI)
+User Input (CLI/Streamlit UI)
     ↓
 A's main.py (LearningAssistant)
     ↓
-B's Modules.                   C's Modules
+B's Modules                    C's Modules
     ↓                                ↓
 Quiz/QA Data                     Adapters
     ↓                                ↓
@@ -844,13 +952,66 @@ Quiz/QA Data                     Adapters
                               AdaptiveEngine
                                      ↓
                             Recommendations
+                                     ↓
+                         D's Streamlit UI
 ```
 
 ---
 
-### **For D (Frontend Developer)**
-D should call A's main.py methods. Key methods for UI:
-- `get_progress()`: Display mastery dashboard
-- `get_learning_curve()`: Plot progress over time
-- `next_recommendation()`: Show "What to study next"
-- `submit_quiz()`: Show quiz results and score
+## Quick Reference
+
+### Typical Workflow (CLI)
+```bash
+# Start the system
+python main.py
+
+# Upload course
+>>> upload data/lecture.pdf
+
+# Generate adaptive quiz
+>>> quiz neural_networks 5
+
+# Submit answers
+>>> submit A B C D A
+
+# Check progress
+>>> progress neural_networks
+
+# Get recommendation
+>>> next
+```
+
+### Typical Workflow (Streamlit)
+```bash
+# Start web app
+streamlit run app.py
+
+# Then in browser:
+# 1. Upload PDF in sidebar
+# 2. Chat with tutor or generate quiz
+# 3. View progress in Progress tab
+# 4. Get recommendations in Next Step tab
+```
+
+### Performance Expectations
+- **Model Loading:** 30-60s first time, <1s cached
+- **Quiz Generation:** ~5-10s for 5 questions
+- **Evaluation:** <100ms
+- **RAG Query:** 1-3s
+
+### Common Errors
+```python
+# Missing HF_TOKEN
+# → Add HF_TOKEN to .env file
+
+# No quiz generated
+# → Call generate_quiz() before submit_quiz()
+
+# Wrong number of answers
+# → submit_quiz() expects list matching number of questions
+```
+
+---
+
+**Last Updated:** December 2025  
+**Course:** Columbia COMS4995_032 Applied Machine Learning
