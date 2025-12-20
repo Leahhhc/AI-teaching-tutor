@@ -54,16 +54,14 @@ The system is built with a modular architecture consisting of four main componen
 
 ```
 AI-teaching-tutor/
-├── agents/             # Agent implementations for quiz generation
-├── core/              # Core system integration and orchestration
+├── agents/            # Agent implementations for quiz generation
+├── core/              # Core data types and essential system components
 ├── data/              # Course materials and training data
 ├── evaluation/        # Answer evaluation and scoring logic
 ├── memory/            # ChromaDB integration and vector storage
 ├── parsers/           # Data parsing and preprocessing utilities
 ├── prompts/           # LLM prompt templates
-├── tests/             # Unit and integration tests
-├── ui/                # User interface components
-├── utils/             # Utility functions and helpers
+├── tests/             # Unit tests
 ├── main.py            # Command-line interface entry point
 ├── app.py             # Web application entry point
 ├── requirements.txt   # Python dependencies
